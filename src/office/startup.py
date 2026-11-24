@@ -34,6 +34,7 @@ from office import db, state
 from office.result import Result
 from office.state import Refused, Usage
 from office.util import DEAD, atomic_write_text, claim_identity, claim_liveness, dumps, now_iso, parse_iso
+from office import hc_bridge
 
 OPEN = ("waiting", "answering", "answered")
 UNRECOGNIZED = "unrecognized startup screen"
@@ -425,7 +426,7 @@ def answer(con, run: dict, d: dict, *, keys: str | None, choice: int | None, exp
     sent = True
     for key in seq:
         try:
-            proc = subprocess.run(["herdr", "pane", "send-keys", row["pane_id"], key], capture_output=True, text=True,
+            proc = subprocess.run([*hc_bridge.herdr(), "pane", "send-keys", row["pane_id"], key], capture_output=True, text=True,
                                   timeout=30)
             sent = sent and proc.returncode == 0
         except (OSError, subprocess.SubprocessError):

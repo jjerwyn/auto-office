@@ -25,6 +25,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
+from office import hc_bridge
 
 try:
     import termios
@@ -2248,7 +2249,7 @@ def stop_dispatch(run: dict, d: dict, *, wait: float = 5.0, notes: list[str] | N
     deadline = time.time() + wait
     while sup and pid_alive(sup) and time.time() < deadline:
         time.sleep(0.05)  # let the supervisor record its own `signal` end
-    if d.get("launcher") == "herdr" and d.get("pane_id") and shutil.which("herdr"):
+    if d.get("launcher") == "herdr" and d.get("pane_id") and hc_bridge.which_herdr():
         reclaim_pane(run, d["id"], explicit=True)  # snapshot, then close
         signalled = True
     con = db.connect()
@@ -2497,7 +2498,7 @@ def worker_env(run: dict, dispatch: dict, role: str) -> dict:
 def herdr_usable() -> bool:
     """Whether launches here open Herdr panes (a native resume needs one)."""
     return bool(os.environ.get("OFFICE_LAUNCHER", "auto") in ("auto", "herdr")
-                and os.environ.get("HERDR_ENV") == "1" and shutil.which("herdr"))
+                and os.environ.get("HERDR_ENV") == "1" and hc_bridge.which_herdr())
 
 
 def launch(run: dict, dispatch: dict, kind: str, ddir: Path, *, cwd: Path, wait: bool = False,
@@ -3170,7 +3171,7 @@ def _herdr_agent_start(run: dict, dispatch: dict, spec: dict, env: dict, inter: 
                         transport="herdr agent prompt pointer", herdr_kind=herdr_kind,
                         brief_delivery="herdr agent prompt (brief pointer)")
     try:
-        proc = subprocess.run(["herdr", "agent", "start", name, "--kind", herdr_kind, "--pane", pane, "--", *args],
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "start", name, "--kind", herdr_kind, "--pane", pane, "--", *args],
                               capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired as exc:
         proc = subprocess.CompletedProcess(exc.cmd, 1, "", f"timeout: {exc}")
@@ -3381,7 +3382,7 @@ def _herdr_agent_sample(name: str) -> dict | None:
     """One `herdr agent get` sample: {"status", "content_hash"}, or None when
     the agent is gone (its process exited)."""
     try:
-        proc = subprocess.run(["herdr", "agent", "get", name], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "get", name], capture_output=True, text=True, timeout=30)
         res = json.loads(proc.stdout or "{}").get("result") or {}
     except (OSError, subprocess.SubprocessError, ValueError):
         # Unreadable is not idle: busy stays unknown (None), which never settles.
@@ -3399,7 +3400,7 @@ def _herdr_agent_sample(name: str) -> dict | None:
 def _herdr_agent_text(name: str, *extra: str) -> str | None:
     """Pane text, or None when it could not be read."""
     try:
-        proc = subprocess.run(["herdr", "agent", "read", name, *extra], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "read", name, *extra], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
     return proc.stdout if proc.returncode == 0 else None
@@ -3790,7 +3791,7 @@ def _herdr_quiet(*args: str) -> None:
     """Run a herdr command whose failure must not escape: the agent is already
     recorded as launched, so a hung or missing herdr must not abort the caller."""
     try:
-        subprocess.run(["herdr", *args], capture_output=True, timeout=30)
+        subprocess.run([*hc_bridge.herdr(), *args], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         pass
 
@@ -4241,7 +4242,7 @@ def transcript_reply(d: dict, spec: dict) -> str | None:
 
 def _herdr_json(args: list[str]) -> dict:
     try:
-        proc = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), *args], capture_output=True, text=True, timeout=30)
         return json.loads(proc.stdout or "{}").get("result") or {}
     except (OSError, subprocess.SubprocessError, ValueError):
         return {}
@@ -4302,7 +4303,7 @@ def _unreserve_pane(run: dict, pane: str) -> None:
 def _tab_exists(tab_id: str) -> bool:
     """False only when herdr says the tab is gone; an unreachable herdr counts as present."""
     try:
-        proc = subprocess.run(["herdr", "tab", "get", tab_id], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "tab", "get", tab_id], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return True
     return proc.returncode == 0 or "not_found" not in (proc.stdout or "") + (proc.stderr or "")
@@ -4340,7 +4341,7 @@ def _herdr_pick_pane(run: dict, cwd: Path) -> str | None:
 def _herdr_rename(pane: str, label: str) -> None:
     """A label is cosmetic: a rename that fails or times out never fails a launch."""
     try:
-        subprocess.run(["herdr", "pane", "rename", pane, label], capture_output=True, timeout=30)
+        subprocess.run([*hc_bridge.herdr(), "pane", "rename", pane, label], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         pass
 
@@ -4522,7 +4523,7 @@ def _herdr_own_tab_pane(run: dict, cwd: Path, tab_file: Path, tab: dict | None) 
 def close_herdr_tab(run: dict) -> None:
     """Close what the run created: its panes in the caller's tab, or its own tab."""
     tab_file = paths.run_dir(run["id"]) / "herdr-tab.json"
-    if not shutil.which("herdr"):
+    if not hc_bridge.which_herdr():
         return
     # Each dispatch pane is snapshotted before it closes.
     con = db.connect()
@@ -4542,10 +4543,10 @@ def close_herdr_tab(run: dict) -> None:
             if tab.get("mode") == "split":
                 for pane in tab.get("panes") or []:
                     if _pane_exists(pane):
-                        subprocess.run(["herdr", "pane", "close", pane], capture_output=True, timeout=30)
+                        subprocess.run([*hc_bridge.herdr(), "pane", "close", pane], capture_output=True, timeout=30)
             else:
                 for tab_id in [*(tab.get("orphan_tabs") or []), tab["tab_id"]]:
-                    subprocess.run(["herdr", "tab", "close", tab_id], capture_output=True, timeout=30)
+                    subprocess.run([*hc_bridge.herdr(), "tab", "close", tab_id], capture_output=True, timeout=30)
         except (OSError, ValueError, subprocess.SubprocessError, KeyError):
             pass
 
@@ -4652,7 +4653,7 @@ def _banner_session(pane: str, adapter: dict | None, marker: Path) -> str | None
     deadline = time.time() + float(os.environ.get("OFFICE_HERDR_SESSION_WAIT", "2"))
     while True:
         try:
-            proc = subprocess.run(["herdr", "pane", "read", pane, "--source", "visible", "--lines", "60"],
+            proc = subprocess.run([*hc_bridge.herdr(), "pane", "read", pane, "--source", "visible", "--lines", "60"],
                                   capture_output=True, text=True, timeout=10)
             text = proc.stdout if proc.returncode == 0 else None
         except (OSError, subprocess.SubprocessError):
@@ -4891,7 +4892,7 @@ def _pane_exists(pane: str) -> bool:
     """False only when herdr says the pane is gone; an unreachable herdr counts
     as present, so nothing is recorded closed that may still be open."""
     try:
-        proc = subprocess.run(["herdr", "pane", "get", pane], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "pane", "get", pane], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return True
     return "pane_not_found" not in (proc.stdout or "") + (proc.stderr or "")
@@ -4901,7 +4902,7 @@ def _pane_visible(pane: str) -> str:
     """The pane's visible screen, or "" when herdr cannot read it. An answered dialog
     can linger in scrollback; the screen shows what is up now."""
     try:
-        proc = subprocess.run(["herdr", "pane", "read", pane, "--source", "visible", "--lines", "40"],
+        proc = subprocess.run([*hc_bridge.herdr(), "pane", "read", pane, "--source", "visible", "--lines", "40"],
                               capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -4911,7 +4912,7 @@ def _pane_visible(pane: str) -> str:
 def _pane_read(pane: str) -> str:
     """The pane's recent text, or "" when herdr cannot read it."""
     try:
-        proc = subprocess.run(["herdr", "pane", "read", pane, "--source", "recent-unwrapped", "--lines", "5000"],
+        proc = subprocess.run([*hc_bridge.herdr(), "pane", "read", pane, "--source", "recent-unwrapped", "--lines", "5000"],
                               capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -4925,7 +4926,7 @@ def _pane_snapshot(name: str, pane: str) -> str:
                  ["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "5000"],
                  ["pane", "read", pane, "--source", "recent"]):
         try:
-            proc = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=30)
+            proc = subprocess.run([*hc_bridge.herdr(), *args], capture_output=True, text=True, timeout=30)
         except (OSError, subprocess.SubprocessError):
             continue
         if proc.returncode == 0 and (proc.stdout or "").strip():
@@ -4956,7 +4957,7 @@ def reclaim_pane(run: dict, dispatch_id: str, *, explicit: bool = False) -> str:
         d = state.get_dispatch(con, dispatch_id)
     finally:
         con.close()
-    if not d or d.get("launcher") != "herdr" or not d.get("pane_id") or not shutil.which("herdr"):
+    if not d or d.get("launcher") != "herdr" or not d.get("pane_id") or not hc_bridge.which_herdr():
         return "skipped"
     if d.get("pane_closed_at"):
         return "closed"
@@ -4984,7 +4985,7 @@ def reclaim_pane(run: dict, dispatch_id: str, *, explicit: bool = False) -> str:
     if grace and not explicit:
         time.sleep(grace)  # let the agent's own `office submit` finish printing
     try:
-        subprocess.run(["herdr", "pane", "close", pane], capture_output=True, timeout=30)
+        subprocess.run([*hc_bridge.herdr(), "pane", "close", pane], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         pass
     if _pane_exists(pane):
@@ -5786,7 +5787,7 @@ def stop_worker_tree(run: dict, d: dict) -> tuple[bool, str]:
     read (alive but no readable start time, or a live pid with no record), or a process table that cannot
     be read, is not confirmed: the caller blocks rather than starting a second writer."""
     notes: list[str] = []
-    if d.get("launcher") == "herdr" and d.get("pane_id") and shutil.which("herdr"):
+    if d.get("launcher") == "herdr" and d.get("pane_id") and hc_bridge.which_herdr():
         try:
             notes.append(f"pane {reclaim_pane(run, d['id'], explicit=True)}")
         except Exception as exc:  # the process scan below still decides

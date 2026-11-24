@@ -213,6 +213,7 @@ Executor routing (AA v5, `catalog/executor-policy.yaml`): size floors use the Ar
 Inside Herdr, each dispatch is a real interactive agent in a pane beside yours, closed once accepted (`office dismiss` closes kept panes). Message a
 live worker only with `office prompt <T2|dispatch> -- "<message>"`, never `herdr pane run` or `pane send-text`. A `launch` notice in `office status`
 means the agent never started or the prompt never landed; a worker with no pane runs headless and queues prompts. Detail: `docs/orchestrator-reference.md`.
+In a Herdr desktop app terminal (`HC_TERMINAL_ID`) the panes are that app's own terminals, split beside yours: read one with `hc read <pane>` where a line says `herdr pane read`. Detail: `docs/herdr-app.md`.
 Each run shows on a display-only herdr-projects board card (key from rico-mode, else Office adds its own when the board is installed); Office updates it by itself and answers still come through rico-mode, not the board: `docs/orchestrator-reference.md` (Board card).
 
 ## Land and close

@@ -14,6 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Protocol
+from office import hc_bridge
 
 
 def start_command(issue_ref: str, end_state: str | None) -> str:
@@ -75,7 +76,7 @@ class HerdrLauncher:
             return {"ok": False, "reason": "herdr did not create a pane"}
         name = _agent_name(label)
         try:
-            proc = subprocess.run(["herdr", "agent", "start", name, "--kind", harness, "--pane", pane, "--",
+            proc = subprocess.run([*hc_bridge.herdr(), "agent", "start", name, "--kind", harness, "--pane", pane, "--",
                                    harness], capture_output=True, text=True, timeout=120)
         except (OSError, subprocess.SubprocessError) as exc:
             return {"ok": False, "pane": pane, "reason": f"herdr agent start failed: {type(exc).__name__}"}
@@ -99,7 +100,7 @@ class HerdrLauncher:
 
     def focus(self, pane: str) -> bool:
         try:
-            return subprocess.run(["herdr", "pane", "focus", pane], capture_output=True, timeout=30).returncode == 0
+            return subprocess.run([*hc_bridge.herdr(), "pane", "focus", pane], capture_output=True, timeout=30).returncode == 0
         except (OSError, subprocess.SubprocessError):
             return False
 

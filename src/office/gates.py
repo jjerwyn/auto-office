@@ -36,6 +36,7 @@ from office import briefs, candidates, contract, db, jobs, paths, planfile, port
 from office.result import Result
 from office.state import Refused, Usage
 from office.util import atomic_write_json, dumps, now_iso, pid_alive, sha256_bytes, sha256_obj
+from office import hc_bridge
 
 TASK_GATES = ("checks", "code_review", "visual")
 ATTEMPT_FILE = "review-attempt.json"  # what a launched reviewer dispatch leaves for the job that settles it
@@ -1946,7 +1947,7 @@ def _log_text(d: dict, ddir: Path, *, pane: bool = False) -> str:
     if not pane:
         return text
     tail = ddir / "pane-tail.txt"
-    if d.get("launcher") == "herdr" and d.get("pane_id") and not tail.is_file() and shutil.which("herdr"):
+    if d.get("launcher") == "herdr" and d.get("pane_id") and not tail.is_file() and hc_bridge.which_herdr():
         from office import dispatch as dispatch_mod
         snap = dispatch_mod._pane_snapshot(dispatch_mod.herdr_agent_name(d["id"]), d["pane_id"])
         if snap:
@@ -2098,7 +2099,7 @@ def cooling_pin_recovery(con, run: dict, task: dict | None, gate_id: str) -> str
 
 def _agent_alive(name: str) -> bool:
     try:
-        return subprocess.run(["herdr", "agent", "get", name], capture_output=True, timeout=30).returncode == 0
+        return subprocess.run([*hc_bridge.herdr(), "agent", "get", name], capture_output=True, timeout=30).returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
 

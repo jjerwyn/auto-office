@@ -31,6 +31,7 @@ from office import db, dispatch, paths, state
 from office.result import Result
 from office.state import Refused, Usage
 from office.util import atomic_write_text, now_iso, parse_iso
+from office import hc_bridge
 
 EVENT = "agent.question"
 CLEARED = "agent.question.cleared"
@@ -372,10 +373,10 @@ def _herdr_agents() -> list[dict] | None:
     """One `herdr agent list` call; None when herdr is absent, slow or errors."""
     import shutil
     import subprocess
-    if not shutil.which("herdr"):
+    if not hc_bridge.which_herdr():
         return None
     try:
-        proc = subprocess.run(["herdr", "agent", "list"], capture_output=True, text=True, timeout=5)
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "list"], capture_output=True, text=True, timeout=5)
         agents = (json.loads(proc.stdout or "{}").get("result") or {}).get("agents")
     except (OSError, subprocess.SubprocessError, ValueError):
         return None

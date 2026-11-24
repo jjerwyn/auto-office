@@ -29,7 +29,7 @@ runs, its start time must also equal the one recorded at launch. A pane dispatch
 Even then, Office does not stop it while another executor is live in that worktree. The stop is recorded as a
 `visual.reclaimed` event. Any other holder becomes `CAPTURE_BLOCKED` naming the port, PID, command and whether an ended
 dispatch may own it. A server that left the agent's group (for example via `setsid`) is always reported and never stopped.
-When Office names a failed Herdr pane, read it yourself with `herdr pane read <pane>`
+When Office names a failed Herdr pane, read it yourself with `herdr pane read <pane>` (`hc read <pane>` in the Herdr desktop app, `docs/herdr-app.md`)
 (or the saved `pane-tail.txt` once Office closed it) to find the startup dialog, dead harness, quota wall, or other blocker.
 When a harness opens on an interactive startup screen (an update notice, a trust, login or what's-new screen),
 Office keeps its Herdr pane and records a startup prompt instead of falling back to headless at once (#510). `office status`

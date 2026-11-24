@@ -19,6 +19,7 @@ from office import db, paths, portable, state
 from office.result import Result
 from office.state import Refused
 from office.util import now_iso, pid_alive, short
+from office import hc_bridge
 
 
 def _git(repo: Path, *argv: str) -> subprocess.CompletedProcess:
@@ -141,12 +142,12 @@ def _herdr_blocker(con, run: dict, wt: Path) -> str | None:
            and pid_alive(r["pid"]) for r in rows):
         return "live Office agent process"
     panes = [r["pane_id"] for r in rows if r["pane_id"]]
-    if panes and not shutil.which("herdr"):
+    if panes and not hc_bridge.which_herdr():
         # No API to prove that a retained pane is no longer attached.
         return "Herdr cannot be queried for recorded pane"
     for pane in panes:
         try:
-            p = subprocess.run(["herdr", "pane", "get", pane], capture_output=True, text=True, timeout=10)
+            p = subprocess.run([*hc_bridge.herdr(), "pane", "get", pane], capture_output=True, text=True, timeout=10)
         except (OSError, subprocess.SubprocessError):
             return f"Herdr pane {pane} liveness unknown"
 

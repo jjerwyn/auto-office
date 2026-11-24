@@ -38,6 +38,7 @@ Where the earlier [CLI architecture](office-cli-architecture.md) disagrees, the 
 | User authority (`approve`) | `authority.py` |
 | Durable jobs without a daemon | `jobs.py` |
 | The run on its display-only herdr-projects board card | `board_card.py` |
+| Herdr panes in the Herdr desktop app: Office's `herdr` over herdr-core's `hc` (`docs/herdr-app.md`) | `hc_bridge.py` |
 | Status and the `next:` line | `guide.py` |
 | `inspect` | `inspect_cmd.py` |
 | `prune` | `prune.py` |

@@ -725,6 +725,10 @@ def main(argv: list[str] | None = None) -> int:
     if argv[:1] != ["_wake_supervise"] and (reason := _rebuilding_reason(argv)):
         print(version.rebuild_line(reason), file=sys.stderr)
         return version.REBUILD_EXIT_CODE
+    # In a Herdr desktop app terminal, Office's herdr calls go to the hc bridge (docs/herdr-app.md).
+    if os.environ.get("HC_TERMINAL_ID"):
+        from office import hc_bridge
+        hc_bridge.activate()
     if argv and argv[0] == "hook":
         from office import hooks
         return hooks.main(argv[1:])

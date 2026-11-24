@@ -42,7 +42,8 @@ settings.register_profile("office", max_examples=100, derandomize=True, **_PROPE
 settings.register_profile("explore", max_examples=1000, derandomize=False, **_PROPERTY_SETTINGS)
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "office"))
 
-_SCRUBBED_PREFIXES = ("OFFICE_", "HERDR_", "AUTO_OFFICE_")
+# HC_*: a run started from a Herdr desktop app terminal would otherwise open real panes there (office.hc_bridge).
+_SCRUBBED_PREFIXES = ("OFFICE_", "HERDR_", "AUTO_OFFICE_", "HC_TERMINAL_", "HC_SCOPE")
 
 # The host's own Hermes, resolved before any test edits PATH. Under a test's isolated HOME,
 # "hermes auth list" can hang to its 20 s timeout on every routing call that asks for providers.

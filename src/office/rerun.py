@@ -21,6 +21,7 @@ from office import adapters, candidates, contract, db, dispatch, gates, jobs, pa
 from office.result import Result
 from office.state import Refused, Usage
 from office.util import pid_alive, sha256_obj
+from office import hc_bridge
 
 
 def _fresh_cmd(tid: str) -> str:
@@ -136,7 +137,7 @@ def agent_alive(d: dict) -> bool | None:
         return bool(d.get("pid") and pid_alive(d["pid"]))
     name = dispatch.herdr_agent_name(d["id"])
     try:
-        proc = subprocess.run(["herdr", "agent", "get", name], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "get", name], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
     if proc.returncode == 0:
@@ -190,7 +191,7 @@ def agent_activity(d: dict) -> dict | None:
         return None
     text = own_pane_text(text, d)
     try:
-        proc = subprocess.run(["herdr", "agent", "get", name], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run([*hc_bridge.herdr(), "agent", "get", name], capture_output=True, text=True, timeout=30)
         agent = (json.loads(proc.stdout or "{}").get("result") or {}).get("agent") or {}
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
